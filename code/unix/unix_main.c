@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 #include <unistd.h>
 #include <signal.h>
@@ -702,11 +705,11 @@ changed the load procedure to match VFS logic, and allow developer use
 extern char   *FS_BuildOSPath( const char *base, const char *game, const char *qpath );
 
 void *Sys_LoadDll( const char *name, char *fqpath ,
-                   int (**entryPoint)(int, ...),
-                   int (*systemcalls)(int, ...) ) 
+                   intptr_t (**entryPoint)(int, ...),
+                   intptr_t (*systemcalls)(intptr_t, ...) )
 {
   void *libHandle;
-  void  (*dllEntry)( int (*syscallptr)(int, ...) );
+  void  (*dllEntry)( intptr_t (*syscallptr)(intptr_t, ...) );
   char  curpath[MAX_OSPATH];
   char  fname[MAX_OSPATH];
   char  *basepath;
@@ -722,7 +725,9 @@ void *Sys_LoadDll( const char *name, char *fqpath ,
   assert( name );
 
   getcwd(curpath, sizeof(curpath));
-#if defined __i386__
+#if defined(__x86_64__)
+  snprintf (fname, sizeof(fname), "%sx86_64.so", name);
+#elif defined __i386__
   snprintf (fname, sizeof(fname), "%si386.so", name);
 #elif defined __powerpc__   //rcg010207 - PPC support.
   snprintf (fname, sizeof(fname), "%sppc.so", name);

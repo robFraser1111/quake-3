@@ -58,6 +58,8 @@ int Sys_Milliseconds (void)
 Sys_SnapVector
 ================
 */
+#if defined(_M_IX86)
+/* MSVC x86 inline asm. x64 has no __asm, and fistp is the wrong unit there. */
 long fastftol( float f ) {
 	static int tmp;
 	__asm fld f
@@ -84,14 +86,19 @@ void Sys_SnapVector( float *v )
 	__asm	fld		f;
 	__asm	fistp	i;
 	*v = i;
-	/*
-	*v = fastftol(*v);
-	v++;
-	*v = fastftol(*v);
-	v++;
-	*v = fastftol(*v);
-	*/
 }
+#else
+long fastftol( float f ) {
+	return (long)f;
+}
+
+void Sys_SnapVector( float *v )
+{
+	v[0] = (float)(int)v[0];
+	v[1] = (float)(int)v[1];
+	v[2] = (float)(int)v[2];
+}
+#endif
 
 
 /*
@@ -99,7 +106,9 @@ void Sys_SnapVector( float *v )
 ** Disable all optimizations temporarily so this code works correctly!
 **
 */
+#if defined(_MSC_VER)
 #pragma optimize( "", off )
+#endif
 
 /*
 ** --------------------------------------------------------------------------------
@@ -108,6 +117,7 @@ void Sys_SnapVector( float *v )
 **
 ** --------------------------------------------------------------------------------
 */
+#if defined(_M_IX86)
 static void CPUID( int func, unsigned regs[4] )
 {
 	unsigned regEAX, regEBX, regECX, regEDX;
@@ -232,6 +242,8 @@ static int IsMMX( void )
 	return qfalse;
 }
 
+#endif /* _M_IX86 */
+
 int Sys_GetProcessorId( void )
 {
 #if defined _M_ALPHA
@@ -274,7 +286,9 @@ int Sys_GetProcessorId( void )
 ** Re-enable optimizations back to what they were
 **
 */
+#if defined(_MSC_VER)
 #pragma optimize( "", on )
+#endif
 
 //============================================
 

@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 // tr_init.c -- functions that are not called every frame
 
@@ -1024,7 +1027,7 @@ void R_Init( void ) {
 
 //	Swap_Init();
 
-	if ( (int)tess.xyz & 15 ) {
+	if ( (uintptr_t)tess.xyz & 15 ) {
 		Com_Printf( "WARNING: tess.xyz not 16 byte aligned\n" );
 	}
 	Com_Memset( tess.constantColor255, 255, sizeof( tess.constantColor255 ) );

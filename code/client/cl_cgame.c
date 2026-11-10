@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 // cl_cgame.c  -- client system interaction with client game
 
@@ -413,8 +416,8 @@ The cgame module is making a system call
 ====================
 */
 #define	VMA(x) VM_ArgPtr(args[x])
-#define	VMF(x)	((float *)args)[x]
-int CL_CgameSystemCalls( int *args ) {
+#define	VMF(x) Q_bitsfloat((int)args[x])
+intptr_t CL_CgameSystemCalls( intptr_t *args ) {
 	switch( args[0] ) {
 	case CG_PRINT:
 		Com_Printf( "%s", VMA(1) );
@@ -623,7 +626,8 @@ int CL_CgameSystemCalls( int *args ) {
 		Com_Memcpy( VMA(1), VMA(2), args[3] );
 		return 0;
 	case CG_STRNCPY:
-		return (int)strncpy( VMA(1), VMA(2), args[3] );
+		strncpy( VMA(1), VMA(2), args[3] );
+		return args[1];
 	case CG_SIN:
 		return FloatAsInt( sin( VMF(1) ) );
 	case CG_COS:

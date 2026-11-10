@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 /*
 ** WIN_GLIMP.C
@@ -35,6 +38,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ** related functions that are relevant ONLY to win_glimp.c
 */
 #include <assert.h>
+#include <stdlib.h>
 #include "../renderer/tr_local.h"
 #include "../qcommon/qcommon.h"
 #include "resource.h"
@@ -1363,12 +1367,17 @@ void GLimp_Init( void )
 		ri.Error( ERR_FATAL, "GLimp_Init() - incorrect operating system\n" );
 	}
 
-	// save off hInstance and wndproc
-	cv = ri.Cvar_Get( "win_hinstance", "", 0 );
-	sscanf( cv->string, "%i", (int *)&g_wv.hInstance );
+	/* save off hInstance and wndproc as full hex pointers */
+	{
+		unsigned long long ptrValue;
+		cv = ri.Cvar_Get( "win_hinstance", "", 0 );
+		ptrValue = strtoull( cv->string, NULL, 16 );
+		g_wv.hInstance = (HINSTANCE)(uintptr_t)ptrValue;
 
-	cv = ri.Cvar_Get( "win_wndproc", "", 0 );
-	sscanf( cv->string, "%i", (int *)&glw_state.wndproc );
+		cv = ri.Cvar_Get( "win_wndproc", "", 0 );
+		ptrValue = strtoull( cv->string, NULL, 16 );
+		glw_state.wndproc = (WNDPROC)(uintptr_t)ptrValue;
+	}
 
 	r_allowSoftwareGL = ri.Cvar_Get( "r_allowSoftwareGL", "0", CVAR_LATCH );
 	r_maskMinidriver = ri.Cvar_Get( "r_maskMinidriver", "0", CVAR_LATCH );

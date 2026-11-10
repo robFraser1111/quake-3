@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -138,21 +141,17 @@ int Sys_XTimeToSysTime (unsigned long xtime)
 }
 #endif
 
-//#if 0 // bk001215 - see snapvector.nasm for replacement
-#if (defined __APPLE__) // rcg010206 - using this for PPC builds...
-long fastftol( float f ) { // bk001213 - from win32/win_shared.c
-  //static int tmp;
-  //	__asm fld f
-  //__asm fistp tmp
-  //__asm mov eax, tmp
+/* snapvector.nasm is 32-bit x86. Everywhere else, truncate toward zero
+   the same way the SnapVector macro in q_shared.h does. */
+#if !id386
+long fastftol( float f ) {
   return (long)f;
 }
 
-void Sys_SnapVector( float *v ) { // bk001213 - see win32/win_shared.c
-  // bk001213 - old linux
-  v[0] = rint(v[0]);
-  v[1] = rint(v[1]);
-  v[2] = rint(v[2]);
+void Sys_SnapVector( float *v ) {
+  v[0] = (float)(int)v[0];
+  v[1] = (float)(int)v[1];
+  v[2] = (float)(int)v[2];
 }
 #endif
 

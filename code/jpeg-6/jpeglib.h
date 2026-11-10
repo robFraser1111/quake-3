@@ -8,12 +8,29 @@
  * This file defines the application interface for the JPEG library.
  * Most applications using the library need only include this file,
  * and perhaps jerror.h if they want to know the exact error codes.
+ *
+ * Modified 2026-11-10 in the robFraser1111/quake-3 tree: boolean is
+ * left to rpcndr.h when windows.h has already defined it.
+ * This is not an official id Software product. See README.md.
  */
 
 #ifndef JPEGLIB_H
 #define JPEGLIB_H
 
+/* Pull Windows in before jmorecfg.h so basetsd.h owns INT32/UINT16.
+   The JPEG names are the same width (32-bit int, 16-bit short). */
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
+/* rpcndr.h (pulled in by windows.h) already typedefs boolean.
+   The engine's JPEG code wants the same unsigned char. */
+#ifndef __RPCNDR_H__
 typedef unsigned char boolean;
+#endif
 /*
  * First we include the configuration files that record how this
  * installation of the JPEG library is set up.  jconfig.h can be

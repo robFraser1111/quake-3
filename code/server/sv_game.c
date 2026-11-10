@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 // sv_game.c -- interface to the game dll
 
@@ -305,16 +308,12 @@ SV_GameSystemCalls
 The module is making a system call
 ====================
 */
-//rcg010207 - see my comments in VM_DllSyscall(), in qcommon/vm.c ...
-#if ((defined __linux__) && (defined __powerpc__))
-#define VMA(x) ((void *) args[x])
-#else
+/* Pointer-sized slots. VM_ArgPtr accepts a host pointer from a
+   native module and a 32-bit VM offset from a QVM. */
 #define	VMA(x) VM_ArgPtr(args[x])
-#endif
+#define	VMF(x) Q_bitsfloat((int)args[x])
 
-#define	VMF(x)	((float *)args)[x]
-
-int SV_GameSystemCalls( int *args ) {
+intptr_t SV_GameSystemCalls( intptr_t *args ) {
 	switch( args[0] ) {
 	case G_PRINT:
 		Com_Printf( "%s", VMA(1) );
@@ -828,7 +827,9 @@ int SV_GameSystemCalls( int *args ) {
 		return 0;
 
 	case TRAP_STRNCPY:
-		return (int)strncpy( VMA(1), VMA(2), args[3] );
+		strncpy( VMA(1), VMA(2), args[3] );
+		/* Dest in the caller's address space: host pointer, or QVM offset. */
+		return args[1];
 
 	case TRAP_SIN:
 		return FloatAsInt( sin( VMF(1) ) );

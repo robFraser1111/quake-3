@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 //
 #ifndef __Q_SHARED_H
@@ -26,8 +29,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // q_shared.h -- included first by ALL program modules.
 // A user mod should never modify this file
 
-#define	Q3_VERSION		"Q3 1.32b"
-// 1.32 released 7-10-2002
+#define	Q3_VERSION		"Q3 1.32b-mod"
+// 1.32 released 7-10-2002. The "-mod" suffix marks this modified source
+// tree (not an official id Software build). Protocol stays 68.
 
 #define MAX_TEAMNAME 32
 
@@ -87,6 +91,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <time.h>
 #include <ctype.h>
 #include <limits.h>
+#include <stdint.h>
 
 #endif
 
@@ -137,24 +142,36 @@ float	FloatSwap (const float *f);
 #ifdef NDEBUG
 #ifdef _M_IX86
 #define	CPUSTRING	"win-x86"
+#elif defined(_M_X64)
+#define	CPUSTRING	"win-x86_64"
 #elif defined _M_ALPHA
 #define	CPUSTRING	"win-AXP"
+#else
+#define	CPUSTRING	"win-unknown"
 #endif
 #else
 #ifdef _M_IX86
 #define	CPUSTRING	"win-x86-debug"
+#elif defined(_M_X64)
+#define	CPUSTRING	"win-x86_64-debug"
 #elif defined _M_ALPHA
 #define	CPUSTRING	"win-AXP-debug"
+#else
+#define	CPUSTRING	"win-unknown-debug"
 #endif
 #endif
+
+/* MSVC's POSIX names are the underscored ones. */
+#define stricmp _stricmp
+#define strnicmp _strnicmp
 
 #define ID_INLINE __inline 
 
 static ID_INLINE short BigShort( short l) { return ShortSwap(l); }
 #define LittleShort
-static ID_INLINE int BigLong(int l) { LongSwap(l); }
+static ID_INLINE int BigLong(int l) { return LongSwap(l); }
 #define LittleLong
-static ID_INLINE float BigFloat(const float *l) { FloatSwap(l); }
+static ID_INLINE float BigFloat(const float *l) { return FloatSwap(l); }
 #define LittleFloat
 
 #define	PATH_SEP '\\'
@@ -252,6 +269,8 @@ static inline float LittleFloat (const float l) { return FloatSwap(&l); }
 
 #ifdef __i386__
 #define	CPUSTRING	"linux-i386"
+#elif defined(__x86_64__)
+#define	CPUSTRING	"linux-x86_64"
 #elif defined __axp__
 #define	CPUSTRING	"linux-alpha"
 #else
@@ -326,7 +345,11 @@ static float LittleFloat (const float *l) { return FloatSwap(l); }
 
 //=============================================================
 
+/* rpcndr.h (via windows.h) typedefs byte under this guard. */
+#ifndef _BYTE_DEFINED
+#define _BYTE_DEFINED
 typedef unsigned char 		byte;
+#endif
 
 typedef enum {qfalse, qtrue}	qboolean;
 
@@ -334,6 +357,30 @@ typedef int		qhandle_t;
 typedef int		sfxHandle_t;
 typedef int		fileHandle_t;
 typedef int		clipHandle_t;
+
+#ifndef ID_INLINE
+#define ID_INLINE
+#endif
+
+#ifndef Q3_VM
+typedef union qfloatint_u {
+	int i;
+	float f;
+} qfloatint_t;
+
+/* Floats cross the VM syscall boundary as 32-bit patterns. */
+static ID_INLINE int Q_floatbits( float f ) {
+	qfloatint_t fi;
+	fi.f = f;
+	return fi.i;
+}
+
+static ID_INLINE float Q_bitsfloat( int i ) {
+	qfloatint_t fi;
+	fi.i = i;
+	return fi.f;
+}
+#endif
 
 
 #ifndef NULL
@@ -1427,6 +1474,15 @@ typedef enum _flag_status {
 
 #define CDKEY_LEN 16
 #define CDCHKSUM_LEN 2
+
+#ifndef Q3_VM
+/* Host pointers are 64-bit. Shared structs that cross the QVM stay
+   free of pointers, so these sizes match the 32-bit bytecode. */
+typedef char q3_ptrwidth_check[(sizeof(void *) == 8) ? 1 : -1];
+typedef char q3_qboolean_check[(sizeof(qboolean) == 4) ? 1 : -1];
+typedef char q3_usercmd_check[(sizeof(usercmd_t) == 24) ? 1 : -1];
+typedef char q3_playerstate_check[(sizeof(playerState_t) == 468) ? 1 : -1];
+#endif
 
 
 #endif	// __Q_SHARED_H

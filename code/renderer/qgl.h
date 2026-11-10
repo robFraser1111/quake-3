@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 /*
 ** QGL.H
@@ -39,7 +42,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #pragma warning (disable: 4201)
 #pragma warning (disable: 4214)
 #include <windows.h>
-#include <gl/gl.h>
+#include <GL/gl.h>
 
 #elif defined(MACOS_X)
 

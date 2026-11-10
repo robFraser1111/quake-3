@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 #include "vm_local.h"
 
@@ -310,7 +313,7 @@ locals from sp
 
 #define	DEBUGSTR va("%s%i", VM_Indent(vm), opStack-stack )
 
-int	VM_CallInterpreted( vm_t *vm, int *args ) {
+intptr_t VM_CallInterpreted( vm_t *vm, intptr_t *args ) {
 	int		stack[MAX_STACK];
 	int		*opStack;
 	int		programCounter;
@@ -349,16 +352,16 @@ int	VM_CallInterpreted( vm_t *vm, int *args ) {
 
 	programStack -= 48;
 
-	*(int *)&image[ programStack + 44] = args[9];
-	*(int *)&image[ programStack + 40] = args[8];
-	*(int *)&image[ programStack + 36] = args[7];
-	*(int *)&image[ programStack + 32] = args[6];
-	*(int *)&image[ programStack + 28] = args[5];
-	*(int *)&image[ programStack + 24] = args[4];
-	*(int *)&image[ programStack + 20] = args[3];
-	*(int *)&image[ programStack + 16] = args[2];
-	*(int *)&image[ programStack + 12] = args[1];
-	*(int *)&image[ programStack + 8 ] = args[0];
+	*(int *)&image[ programStack + 44] = (int)args[9];
+	*(int *)&image[ programStack + 40] = (int)args[8];
+	*(int *)&image[ programStack + 36] = (int)args[7];
+	*(int *)&image[ programStack + 32] = (int)args[6];
+	*(int *)&image[ programStack + 28] = (int)args[5];
+	*(int *)&image[ programStack + 24] = (int)args[4];
+	*(int *)&image[ programStack + 20] = (int)args[3];
+	*(int *)&image[ programStack + 16] = (int)args[2];
+	*(int *)&image[ programStack + 12] = (int)args[1];
+	*(int *)&image[ programStack + 8 ] = (int)args[0];
 	*(int *)&image[ programStack + 4 ] = 0;	// return stack
 	*(int *)&image[ programStack ] = -1;	// will terminate the loop on return
 
@@ -479,7 +482,8 @@ nextInstruction2:
 
 				src = (int *)&image[ r0&dataMask ];
 				dest = (int *)&image[ r1&dataMask ];
-				if ( ( (int)src | (int)dest | count ) & 3 ) {
+				/* Low bits are the alignment. Mask the full address. */
+				if ( ( (uintptr_t)src | (uintptr_t)dest | (unsigned)count ) & 3 ) {
 					Com_Error( ERR_DROP, "OP_BLOCK_COPY not dword aligned" );
 				}
 				count >>= 2;
@@ -500,7 +504,7 @@ nextInstruction2:
 			opStack--;
 			if ( programCounter < 0 ) {
 				// system call
-				int		r;
+				intptr_t	r;
 				int		temp;
 #ifdef DEBUG_VM
 				int		stomped;
@@ -517,8 +521,17 @@ nextInstruction2:
 #endif
 				*(int *)&image[ programStack + 4 ] = -1 - programCounter;
 
-//VM_LogSyscalls( (int *)&image[ programStack + 4 ] );
-				r = vm->systemCall( (int *)&image[ programStack + 4 ] );
+				{
+					/* QVM stack slots are 32-bit. Widen them before the
+					   host syscall, which stores pointers in intptr_t. */
+					int *imgArgs = (int *)&image[ programStack + 4 ];
+					intptr_t vmArgs[16];
+					int ai;
+					for ( ai = 0; ai < 16; ai++ ) {
+						vmArgs[ai] = imgArgs[ai];
+					}
+					r = vm->systemCall( vmArgs );
+				}
 
 #ifdef DEBUG_VM
 				// this is just our stack frame pointer, only needed
@@ -528,7 +541,7 @@ nextInstruction2:
 
 				// save return value
 				opStack++;
-				*opStack = r;
+				*opStack = (int)r;
 				programCounter = *(int *)&image[ programStack ];
 				vm->callLevel = temp;
 #ifdef DEBUG_VM

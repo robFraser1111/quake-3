@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 // sv_client.c -- server code for dealing with clients
 
@@ -240,6 +243,7 @@ void SV_DirectConnect( netadr_t from ) {
 	char		*password;
 	int			startIndex;
 	char		*denied;
+	intptr_t	deniedCode;
 	int			count;
 
 	Com_DPrintf ("SVC_DirectConnect ()\n");
@@ -420,10 +424,10 @@ gotnewcl:
 	Q_strncpyz( newcl->userinfo, userinfo, sizeof(newcl->userinfo) );
 
 	// get the game a chance to reject this connection or modify the userinfo
-	denied = (char *)VM_Call( gvm, GAME_CLIENT_CONNECT, clientNum, qtrue, qfalse ); // firstTime = qtrue
-	if ( denied ) {
+	deniedCode = VM_Call( gvm, GAME_CLIENT_CONNECT, clientNum, qtrue, qfalse ); // firstTime = qtrue
+	if ( deniedCode ) {
 		// we can't just use VM_ArgPtr, because that is only valid inside a VM_Call
-		denied = VM_ExplicitArgPtr( gvm, (int)denied );
+		denied = (char *)VM_ExplicitArgPtr( gvm, deniedCode );
 
 		NET_OutOfBandPrint( NS_SERVER, from, "print\n%s\n", denied );
 		Com_DPrintf ("Game rejected a connection: %s.\n", denied);

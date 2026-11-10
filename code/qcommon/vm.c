@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 // vm.c -- virtual machine
 
@@ -324,24 +327,23 @@ Dlls will call this directly
  
 ============
 */
-int QDECL VM_DllSyscall( int arg, ... ) {
-#if ((defined __linux__) && (defined __powerpc__))
-  // rcg010206 - see commentary above
-  int args[16];
-  int i;
-  va_list ap;
-  
-  args[0] = arg;
-  
-  va_start(ap, arg);
-  for (i = 1; i < sizeof (args) / sizeof (args[i]); i++)
-    args[i] = va_arg(ap, int);
-  va_end(ap);
-  
-  return currentVM->systemCall( args );
-#else // original id code
-	return currentVM->systemCall( &arg );
-#endif
+intptr_t QDECL VM_DllSyscall( intptr_t arg, ... ) {
+	/* The original x86 code passed &arg and treated it as an int array.
+	   On x86_64 the first argument is a register spill, not the base of
+	   the remaining arguments, and a pointer does not fit in int.
+	   Copy every argument as intptr_t. The same path is correct on
+	   32-bit, where intptr_t is int. */
+	intptr_t args[16];
+	int i;
+	va_list ap;
+
+	args[0] = arg;
+	va_start( ap, arg );
+	for ( i = 1; i < (int)(sizeof(args) / sizeof(args[0])); i++ ) {
+		args[i] = va_arg( ap, intptr_t );
+	}
+	va_end( ap );
+	return currentVM->systemCall( args );
 }
 
 /*
@@ -362,7 +364,7 @@ vm_t *VM_Restart( vm_t *vm ) {
 	// DLL's can't be restarted in place
 	if ( vm->dllHandle ) {
 		char	name[MAX_QPATH];
-	    int			(*systemCall)( int *parms );
+	    intptr_t		(*systemCall)( intptr_t *parms );
 		
 		systemCall = vm->systemCall;	
 		Q_strncpyz( name, vm->name, sizeof( name ) );
@@ -432,7 +434,7 @@ it will attempt to load as a system dll
 
 #define	STACK_SIZE	0x20000
 
-vm_t *VM_Create( const char *module, int (*systemCalls)(int *), 
+vm_t *VM_Create( const char *module, intptr_t (*systemCalls)(intptr_t *),
 				vmInterpret_t interpret ) {
 	vm_t		*vm;
 	vmHeader_t	*header;
@@ -541,9 +543,17 @@ vm_t *VM_Create( const char *module, int (*systemCalls)(int *),
 	// copy or compile the instructions
 	vm->codeLength = header->codeLength;
 
+	/* vm_x86.c is a 32-bit JIT. Every other architecture, including
+	   x86_64, runs the bytecode interpreter. VMI_COMPILED (the
+	   shipped default, vm_* = 2) therefore means "QVM", not "native". */
 	if ( interpret >= VMI_COMPILED ) {
+#if id386
 		vm->compiled = qtrue;
 		VM_Compile( vm, header );
+#else
+		vm->compiled = qfalse;
+		VM_PrepareInterpreter( vm, header );
+#endif
 	} else {
 		vm->compiled = qfalse;
 		VM_PrepareInterpreter( vm, header );
@@ -604,7 +614,7 @@ void VM_Clear(void) {
 	lastVM = NULL;
 }
 
-void *VM_ArgPtr( int intValue ) {
+void *VM_ArgPtr( intptr_t intValue ) {
 	if ( !intValue ) {
 		return NULL;
 	}
@@ -613,29 +623,23 @@ void *VM_ArgPtr( int intValue ) {
 	  return NULL;
 
 	if ( currentVM->entryPoint ) {
-		return (void *)(currentVM->dataBase + intValue);
+		/* Native DLL. dataBase is NULL here, so the old
+		   dataBase+intValue form only survived while a pointer
+		   fit in 32 bits. */
+		return (void *)intValue;
 	}
-	else {
-		return (void *)(currentVM->dataBase + (intValue & currentVM->dataMask));
-	}
+	return (void *)(currentVM->dataBase + ((int)intValue & currentVM->dataMask));
 }
 
-void *VM_ExplicitArgPtr( vm_t *vm, int intValue ) {
-	if ( !intValue ) {
+void *VM_ExplicitArgPtr( vm_t *vm, intptr_t intValue ) {
+	if ( !intValue || !vm ) {
 		return NULL;
 	}
 
-	// bk010124 - currentVM is missing on reconnect here as well?
-	if ( currentVM==NULL )
-	  return NULL;
-
-	//
 	if ( vm->entryPoint ) {
-		return (void *)(vm->dataBase + intValue);
+		return (void *)intValue;
 	}
-	else {
-		return (void *)(vm->dataBase + (intValue & vm->dataMask));
-	}
+	return (void *)(vm->dataBase + ((int)intValue & vm->dataMask));
 }
 
 
@@ -665,11 +669,12 @@ locals from sp
 #define	MAX_STACK	256
 #define	STACK_MASK	(MAX_STACK-1)
 
-int	QDECL VM_Call( vm_t *vm, int callnum, ... ) {
+intptr_t QDECL VM_Call( vm_t *vm, int callnum, ... ) {
 	vm_t	*oldVM;
-	int		r;
+	intptr_t r;
 	int i;
-	int args[16];
+	intptr_t parm[16];
+	intptr_t vmargs[16];
 	va_list ap;
 
 
@@ -685,23 +690,36 @@ int	QDECL VM_Call( vm_t *vm, int callnum, ... ) {
 	  Com_Printf( "VM_Call( %i )\n", callnum );
 	}
 
+	/* Callers pass ints. On x86_64 those are extended to pointer-sized
+	   slots, so reading them as intptr_t keeps both integers and the
+	   rare full pointer (GAME_CLIENT_CONNECT's return is the other way). */
+	va_start( ap, callnum );
+	for ( i = 0; i < (int)(sizeof(parm) / sizeof(parm[0])); i++ ) {
+		parm[i] = va_arg( ap, intptr_t );
+	}
+	va_end( ap );
+
 	// if we have a dll loaded, call it directly
 	if ( vm->entryPoint ) {
-		//rcg010207 -  see dissertation at top of VM_DllSyscall() in this file.
-		va_start(ap, callnum);
-		for (i = 0; i < sizeof (args) / sizeof (args[i]); i++) {
-			args[i] = va_arg(ap, int);
-		}
-		va_end(ap);
-
-		r = vm->entryPoint( callnum,  args[0],  args[1],  args[2], args[3],
-                            args[4],  args[5],  args[6], args[7],
-                            args[8],  args[9], args[10], args[11],
-                            args[12], args[13], args[14], args[15]);
+		r = vm->entryPoint( callnum, parm[0], parm[1], parm[2], parm[3],
+                            parm[4], parm[5], parm[6], parm[7],
+                            parm[8], parm[9], parm[10], parm[11],
+                            parm[12], parm[13], parm[14], parm[15]);
 	} else if ( vm->compiled ) {
-		r = VM_CallCompiled( vm, &callnum );
+#if id386
+		r = VM_CallCompiled( vm, (int *)&callnum );
+#else
+		Com_Error( ERR_FATAL, "VM_Call: compiled VM on an architecture without a JIT" );
+		r = 0;
+#endif
 	} else {
-		r = VM_CallInterpreted( vm, &callnum );
+		/* The interpreter's frame starts with the command number.
+		   &callnum is not the base of the variadic arguments here. */
+		vmargs[0] = callnum;
+		for ( i = 0; i < 15; i++ ) {
+			vmargs[i + 1] = parm[i];
+		}
+		r = VM_CallInterpreted( vm, vmargs );
 	}
 
 	if ( oldVM != NULL ) // bk001220 - assert(currentVM!=NULL) for oldVM==NULL

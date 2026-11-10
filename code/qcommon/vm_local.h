@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 #include "../game/q_shared.h"
 #include "qcommon.h"
@@ -127,7 +130,7 @@ struct vm_s {
     // DO NOT MOVE OR CHANGE THESE WITHOUT CHANGING THE VM_OFFSET_* DEFINES
     // USED BY THE ASM CODE
     int			programStack;		// the vm may be recursively entered
-    int			(*systemCall)( int *parms );
+    intptr_t		(*systemCall)( intptr_t *parms );
 
 	//------------------------------------
    
@@ -135,7 +138,7 @@ struct vm_s {
 
 	// for dynamic linked modules
 	void		*dllHandle;
-	int			(QDECL *entryPoint)( int callNum, ... );
+	intptr_t		(QDECL *entryPoint)( int callNum, ... );
 
 	// for interpreted modules
 	qboolean	currentlyInterpreting;
@@ -171,7 +174,7 @@ void VM_Compile( vm_t *vm, vmHeader_t *header );
 int	VM_CallCompiled( vm_t *vm, int *args );
 
 void VM_PrepareInterpreter( vm_t *vm, vmHeader_t *header );
-int	VM_CallInterpreted( vm_t *vm, int *args );
+intptr_t	VM_CallInterpreted( vm_t *vm, intptr_t *args );
 
 vmSymbol_t *VM_ValueToFunctionSymbol( vm_t *vm, int value );
 int VM_SymbolToValue( vm_t *vm, const char *symbol );

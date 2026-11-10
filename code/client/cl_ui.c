@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 
 #include "client.h"
@@ -757,9 +760,9 @@ static int FloatAsInt( float f ) {
 	return temp;
 }
 
-void *VM_ArgPtr( int intValue );
+void *VM_ArgPtr( intptr_t intValue );
 #define	VMA(x) VM_ArgPtr(args[x])
-#define	VMF(x)	((float *)args)[x]
+#define	VMF(x) Q_bitsfloat((int)args[x])
 
 /*
 ====================
@@ -768,7 +771,7 @@ CL_UISystemCalls
 The ui module is making a system call
 ====================
 */
-int CL_UISystemCalls( int *args ) {
+intptr_t CL_UISystemCalls( intptr_t *args ) {
 	switch( args[0] ) {
 	case UI_ERROR:
 		Com_Error( ERR_DROP, "%s", VMA(1) );
@@ -1043,7 +1046,8 @@ int CL_UISystemCalls( int *args ) {
 		return 0;
 
 	case UI_STRNCPY:
-		return (int)strncpy( VMA(1), VMA(2), args[3] );
+		strncpy( VMA(1), VMA(2), args[3] );
+		return args[1];
 
 	case UI_SIN:
 		return FloatAsInt( sin( VMF(1) ) );

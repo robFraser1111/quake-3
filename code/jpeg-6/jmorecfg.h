@@ -144,16 +144,22 @@ typedef short UINT8;
 /* UINT16 must hold at least the values 0..65535. */
 
 #ifdef HAVE_UNSIGNED_SHORT
+#ifndef _BASETSD_H_			/* windows.h already typedefs UINT16 */
 typedef unsigned short UINT16;
+#endif
 #else /* not HAVE_UNSIGNED_SHORT */
 typedef unsigned int UINT16;
 #endif /* HAVE_UNSIGNED_SHORT */
 
+/* windows.h (basetsd.h) already typedefs INT32. long and int are both
+   32-bit on Windows, so the existing typedef is the right width. */
+#if !defined(XMD_H) && !defined(_BASETSD_H_)
 typedef long INT32;
+#endif
 
 /* INT16 must hold at least the values -32768..32767. */
 
-#ifndef XMD_H			/* X11/xmd.h correctly defines INT16 */
+#if !defined(XMD_H) && !defined(_BASETSD_H_)
 typedef short INT16;
 #endif
 
@@ -209,9 +215,9 @@ typedef unsigned int JDIMENSION;
  * Defining HAVE_BOOLEAN before including jpeglib.h should make it work.
  */
 
-//#ifndef HAVE_BOOLEAN
-//typedef int boolean;
-//#endif
+/* Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+   boolean is typedef'd in jpeglib.h (and by rpcndr.h on Windows).
+   This is not an official id Software product. See README.md. */
 #ifndef FALSE			/* in case these macros already exist */
 #define FALSE	0		/* values of boolean */
 #endif

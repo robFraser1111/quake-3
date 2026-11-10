@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 // win_main.c
 
@@ -47,7 +50,7 @@ static char		sys_cmdline[MAX_STRING_CHARS];
 #define ALT_SPANK
 #ifdef ALT_SPANK
 #include <stdio.h>
-#include <sys\stat.h>
+#include <sys/stat.h>
 
 int fh = 0;
 
@@ -526,11 +529,11 @@ extern char		*FS_BuildOSPath( const char *base, const char *game, const char *qp
 // fqpath param added 7/20/02 by T.Ray - Sys_LoadDll is only called in vm.c at this time
 // fqpath will be empty if dll not loaded, otherwise will hold fully qualified path of dll module loaded
 // fqpath buffersize must be at least MAX_QPATH+1 bytes long
-void * QDECL Sys_LoadDll( const char *name, char *fqpath , int (QDECL **entryPoint)(int, ...),
-				  int (QDECL *systemcalls)(int, ...) ) {
+void * QDECL Sys_LoadDll( const char *name, char *fqpath , intptr_t (QDECL **entryPoint)(int, ...),
+				  intptr_t (QDECL *systemcalls)(intptr_t, ...) ) {
 	static int	lastWarning = 0;
 	HINSTANCE	libHandle;
-	void	(QDECL *dllEntry)( int (QDECL *syscallptr)(int, ...) );
+	void	(QDECL *dllEntry)( intptr_t (QDECL *syscallptr)(intptr_t, ...) );
 	char	*basepath;
 	char	*cdpath;
 	char	*gamedir;
@@ -543,7 +546,11 @@ void * QDECL Sys_LoadDll( const char *name, char *fqpath , int (QDECL **entryPoi
 
 	*fqpath = 0 ;		// added 7/20/02 by T.Ray
 
+#if defined(_M_X64) || defined(__x86_64__)
+	Com_sprintf( filename, sizeof( filename ), "%sx86_64.dll", name );
+#else
 	Com_sprintf( filename, sizeof( filename ), "%sx86.dll", name );
+#endif
 
 #ifdef NDEBUG
 	timestamp = Sys_Milliseconds();
@@ -606,8 +613,8 @@ void * QDECL Sys_LoadDll( const char *name, char *fqpath , int (QDECL **entryPoi
 	}
 #endif
 
-	dllEntry = ( void (QDECL *)( int (QDECL *)( int, ... ) ) )GetProcAddress( libHandle, "dllEntry" ); 
-	*entryPoint = (int (QDECL *)(int,...))GetProcAddress( libHandle, "vmMain" );
+	dllEntry = ( void (QDECL *)( intptr_t (QDECL *)( intptr_t, ... ) ) )GetProcAddress( libHandle, "dllEntry" );
+	*entryPoint = (intptr_t (QDECL *)(int,...))GetProcAddress( libHandle, "vmMain" );
 	if ( !*entryPoint || !dllEntry ) {
 		FreeLibrary( libHandle );
 		return NULL;
@@ -1089,8 +1096,9 @@ void Sys_Init( void ) {
 	}
 
 	// save out a couple things in rom cvars for the renderer to access
-	Cvar_Get( "win_hinstance", va("%i", (int)g_wv.hInstance), CVAR_ROM );
-	Cvar_Get( "win_wndproc", va("%i", (int)MainWndProc), CVAR_ROM );
+	/* Full pointer, hex. %i dropped the high half and sscanf wrote 4 bytes. */
+	Cvar_Get( "win_hinstance", va("%llx", (unsigned long long)(uintptr_t)g_wv.hInstance), CVAR_ROM );
+	Cvar_Get( "win_wndproc", va("%llx", (unsigned long long)(uintptr_t)(void *)MainWndProc), CVAR_ROM );
 
 	//
 	// figure out our CPU

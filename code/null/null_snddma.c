@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 
 // snddma_null.c
@@ -58,3 +61,8 @@ void S_StartLocalSound( sfxHandle_t sfxHandle, int channelNum ) {
 
 void S_ClearSoundBuffer( void ) {
 }
+
+#if defined(DEDICATED) && defined(_WIN32)
+void SNDDMA_Activate( void ) {
+}
+#endif

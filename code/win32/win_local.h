@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 // win_local.h: Win32-specific Quake3 header file
 
@@ -30,13 +33,35 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #pragma warning( pop )
 #endif
 
-#define	DIRECTSOUND_VERSION	0x0300
-#define	DIRECTINPUT_VERSION	0x0300
+#define	DIRECTSOUND_VERSION	0x0800
+#define	DIRECTINPUT_VERSION	0x0800
 
 #include <dinput.h>
 #include <dsound.h>
 #include <winsock.h>
-#include <wsipx.h>
+
+/* wsipx.h left the Windows SDK. Keep the address layout so the net
+   code compiles; IPX sockets fail at runtime on current Windows. */
+#if defined(__has_include)
+#  if __has_include(<wsipx.h>)
+#    include <wsipx.h>
+#    define Q3_HAVE_WSIPX_H 1
+#  endif
+#endif
+#ifndef Q3_HAVE_WSIPX_H
+#ifndef AF_IPX
+#define AF_IPX 6
+#endif
+#ifndef NSPROTO_IPX
+#define NSPROTO_IPX 1000
+#endif
+typedef struct sockaddr_ipx {
+	short sa_family;
+	char sa_netnum[4];
+	char sa_nodenum[6];
+	unsigned short sa_socket;
+} SOCKADDR_IPX, *PSOCKADDR_IPX, FAR *LPSOCKADDR_IPX;
+#endif
 
 void	IN_MouseEvent (int mstate);
 
@@ -64,7 +89,7 @@ void	IN_Activate (qboolean active);
 void	IN_Frame (void);
 
 // window procedure
-LONG WINAPI MainWndProc (
+LRESULT WINAPI MainWndProc (
     HWND    hWnd,
     UINT    uMsg,
     WPARAM  wParam,

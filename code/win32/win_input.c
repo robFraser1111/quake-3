@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
+
+Modified 2026-11-10 in the robFraser1111/quake-3 tree.
+This is not an official id Software product. See README.md.
 */
 // win_input.c -- win32 mouse and joystick code
 // 02/21/97 JCB Added extended DirectInput code to support external controllers.
@@ -202,13 +205,13 @@ DEFINE_GUID(GUID_SysMouse,   0x6F1D2B60,0xD5A0,0x11CF,0xBF,0xC7,0x44,0x45,0x53,0
 DEFINE_GUID(GUID_XAxis,   0xA36D02E0,0xC9F3,0x11CF,0xBF,0xC7,0x44,0x45,0x53,0x54,0x00,0x00);
 DEFINE_GUID(GUID_YAxis,   0xA36D02E1,0xC9F3,0x11CF,0xBF,0xC7,0x44,0x45,0x53,0x54,0x00,0x00);
 DEFINE_GUID(GUID_ZAxis,   0xA36D02E2,0xC9F3,0x11CF,0xBF,0xC7,0x44,0x45,0x53,0x54,0x00,0x00);
+DEFINE_GUID(IID_IDirectInput8A, 0xBF798030,0x483A,0x4DA2,0xAA,0x99,0x5D,0x64,0xED,0x36,0x97,0x00);
 
 
 #define DINPUT_BUFFERSIZE           16
-#define iDirectInputCreate(a,b,c,d)	pDirectInputCreate(a,b,c,d)
 
-HRESULT (WINAPI *pDirectInputCreate)(HINSTANCE hinst, DWORD dwVersion,
-	LPDIRECTINPUT * lplpDirectInput, LPUNKNOWN punkOuter);
+typedef HRESULT (WINAPI *DirectInput8Create_t)(HINSTANCE, DWORD, REFIID, LPVOID *, LPUNKNOWN);
+static DirectInput8Create_t pDirectInput8Create;
 
 static HINSTANCE hInstDI;
 
@@ -244,8 +247,8 @@ static DIDATAFORMAT	df = {
 	rgodf,                      // and here they are
 };
 
-static LPDIRECTINPUT		g_pdi;
-static LPDIRECTINPUTDEVICE	g_pMouse;
+static LPDIRECTINPUT8		g_pdi;
+static LPDIRECTINPUTDEVICE8	g_pMouse;
 
 void IN_DIMouse( int *mx, int *my );
 
@@ -270,7 +273,7 @@ qboolean IN_InitDIMouse( void ) {
 	Com_Printf( "Initializing DirectInput...\n");
 
 	if (!hInstDI) {
-		hInstDI = LoadLibrary("dinput.dll");
+		hInstDI = LoadLibrary("dinput8.dll");
 		
 		if (hInstDI == NULL) {
 			Com_Printf ("Couldn't load dinput.dll\n");
@@ -278,18 +281,17 @@ qboolean IN_InitDIMouse( void ) {
 		}
 	}
 
-	if (!pDirectInputCreate) {
-		pDirectInputCreate = (long (__stdcall *)(void *,unsigned long ,struct IDirectInputA ** ,struct IUnknown *))
-			GetProcAddress(hInstDI,"DirectInputCreateA");
+	if (!pDirectInput8Create) {
+		pDirectInput8Create = (DirectInput8Create_t)GetProcAddress(hInstDI, "DirectInput8Create");
 
-		if (!pDirectInputCreate) {
+		if (!pDirectInput8Create) {
 			Com_Printf ("Couldn't get DI proc addr\n");
 			return qfalse;
 		}
 	}
 
-	// register with DirectInput and get an IDirectInput to play with.
-	hr = iDirectInputCreate( g_wv.hInstance, DIRECTINPUT_VERSION, &g_pdi, NULL);
+	/* DirectInput 8. The old DirectInputCreateA entry point is gone. */
+	hr = pDirectInput8Create( g_wv.hInstance, DIRECTINPUT_VERSION, &IID_IDirectInput8A, (void **)&g_pdi, NULL);
 
 	if (FAILED(hr)) {
 		Com_Printf ("iDirectInputCreate failed\n");
@@ -297,7 +299,7 @@ qboolean IN_InitDIMouse( void ) {
 	}
 
 	// obtain an interface to the system mouse device.
-	hr = IDirectInput_CreateDevice(g_pdi, &GUID_SysMouse, &g_pMouse, NULL);
+	hr = IDirectInput8_CreateDevice(g_pdi, &GUID_SysMouse, &g_pMouse, NULL);
 
 	if (FAILED(hr)) {
 		Com_Printf ("Couldn't open DI mouse device\n");
@@ -305,7 +307,7 @@ qboolean IN_InitDIMouse( void ) {
 	}
 
 	// set the data format to "mouse format".
-	hr = IDirectInputDevice_SetDataFormat(g_pMouse, &df);
+	hr = IDirectInputDevice8_SetDataFormat(g_pMouse, &df);
 
 	if (FAILED(hr)) 	{
 		Com_Printf ("Couldn't set DI mouse format\n");
@@ -313,7 +315,7 @@ qboolean IN_InitDIMouse( void ) {
 	}
 
 	// set the cooperativity level.
-	hr = IDirectInputDevice_SetCooperativeLevel(g_pMouse, g_wv.hWnd,
+	hr = IDirectInputDevice8_SetCooperativeLevel(g_pMouse, g_wv.hWnd,
 			DISCL_EXCLUSIVE | DISCL_FOREGROUND);
 
 	// https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=50
@@ -325,7 +327,7 @@ qboolean IN_InitDIMouse( void ) {
 
 	// set the buffer size to DINPUT_BUFFERSIZE elements.
 	// the buffer size is a DWORD property associated with the device
-	hr = IDirectInputDevice_SetProperty(g_pMouse, DIPROP_BUFFERSIZE, &dipdw.diph);
+	hr = IDirectInputDevice8_SetProperty(g_pMouse, DIPROP_BUFFERSIZE, &dipdw.diph);
 
 	if (FAILED(hr)) {
 		Com_Printf ("Couldn't set DI buffersize\n");
@@ -347,12 +349,12 @@ IN_ShutdownDIMouse
 */
 void IN_ShutdownDIMouse( void ) {
     if (g_pMouse) {
-		IDirectInputDevice_Release(g_pMouse);
+		IDirectInputDevice8_Release(g_pMouse);
 		g_pMouse = NULL;
 	}
 
     if (g_pdi) {
-		IDirectInput_Release(g_pdi);
+		IDirectInput8_Release(g_pdi);
 		g_pdi = NULL;
 	}
 }
@@ -370,7 +372,7 @@ void IN_ActivateDIMouse( void ) {
 	}
 
 	// we may fail to reacquire if the window has been recreated
-	hr = IDirectInputDevice_Acquire( g_pMouse );
+	hr = IDirectInputDevice8_Acquire( g_pMouse );
 	if (FAILED(hr)) {
 		if ( !IN_InitDIMouse() ) {
 			Com_Printf ("Falling back to Win32 mouse support...\n");
@@ -388,7 +390,7 @@ void IN_DeactivateDIMouse( void ) {
 	if (!g_pMouse) {
 		return;
 	}
-	IDirectInputDevice_Unacquire( g_pMouse );
+	IDirectInputDevice8_Unacquire( g_pMouse );
 }
 
 
@@ -414,10 +416,10 @@ void IN_DIMouse( int *mx, int *my ) {
 	{
 		dwElements = 1;
 
-		hr = IDirectInputDevice_GetDeviceData(g_pMouse,
+		hr = IDirectInputDevice8_GetDeviceData(g_pMouse,
 				sizeof(DIDEVICEOBJECTDATA), &od, &dwElements, 0);
 		if ((hr == DIERR_INPUTLOST) || (hr == DIERR_NOTACQUIRED)) {
-			IDirectInputDevice_Acquire(g_pMouse);
+			IDirectInputDevice8_Acquire(g_pMouse);
 			return;
 		}
 
@@ -476,8 +478,8 @@ void IN_DIMouse( int *mx, int *my ) {
 
 	// read the raw delta counter and ignore
 	// the individual sample time / values
-	hr = IDirectInputDevice_GetDeviceState(g_pMouse,
-			sizeof(DIDEVICEOBJECTDATA), &state);
+	hr = IDirectInputDevice8_GetDeviceState(g_pMouse,
+			sizeof(state), &state);
 	if ( FAILED(hr) ) {
 		*mx = *my = 0;
 		return;
