@@ -1,0 +1,78 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install compilers and X11
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config \
+            libgl1-mesa-dev libx11-dev libxext-dev \
+            libxxf86vm-dev libxxf86dga-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Release
+        run: cmake --build build
+
+      - name: Dedicated server reaches filesystem init
+        run: |
+          set +e
+          out=$(./build/bin/Release/quake3ded.x86_64 +set dedicated 1 +set com_hunkMegs 16 2>&1)
+          code=$?
+          printf '%s\n' "$out"
+          printf '%s\n' "$out" | grep -q "Couldn't load default.cfg"
+          found=$?
+          if [ "$found" -ne 0 ]; then
+            echo "dedicated server did not report the missing game data"
+            exit 1
+          fi
+          # No pak files are in the repo, so a clean Sys_Error is the expected exit.
+          if [ "$code" -eq 0 ]; then
+            echo "expected a non-zero exit without game data"
+            exit 1
+          fi
+
+      - name: Upload Linux binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: quake3-linux-x64
+          path: |
+            build/bin/Release/quake3.x86_64
+            build/bin/Release/quake3ded.x86_64
+            build/bin/Release/q3asm
+            build/bin/Release/baseq3/*.so
+            build/bin/Release/missionpack/*.so
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -A x64
+
+      - name: Build Release x64
+        run: cmake --build build --config Release
+
+      - name: Upload Windows binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: quake3-windows-x64
+          path: |
+            build/bin/Release/quake3.x86_64.exe
+            build/bin/Release/quake3ded.x86_64.exe
+            build/bin/Release/q3asm.exe
+            build/bin/Release/baseq3/*.dll
+            build/bin/Release/missionpack/*.dll
+          if-no-files-found: error

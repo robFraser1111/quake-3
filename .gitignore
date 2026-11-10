@@ -1,0 +1,13 @@
+build/
+out/
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+.vs/
+*.user
+*.suo
+*.ncb
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
